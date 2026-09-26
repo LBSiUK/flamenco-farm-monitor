@@ -1,0 +1,9 @@
+{
+  "port": 8091,
+  "manager": "http://manager.local:8080",
+  "machines": [
+    {"key": "gpu-box", "label": "GPU box", "ssh": "render@192.168.1.20", "worker": "gpu-box", "role": "RTX 3060 · OptiX"},
+    {"key": "mac", "label": "Mac", "worker": "my-mac.local", "role": "Apple Silicon · Metal"},
+    {"key": "old-desktop", "label": "Old desktop", "ssh": "render@192.168.1.21", "worker": "old-desktop", "role": "CPU"}
+  ]
+}

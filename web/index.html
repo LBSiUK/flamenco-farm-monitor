@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Render Farm Monitor</title>
+<style>
+:root {
+  color-scheme: light;
+  --surface-0: #f4f4f2;
+  --surface-1: #fcfcfb;
+  --border: #e3e2de;
+  --grid: #ecebe7;
+  --text-primary: #0b0b0b;
+  --text-secondary: #52514e;
+  --text-muted: #7a7974;
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --track: #cde2fb;
+  --fill: #2a78d6;
+  --good: #0ca30c;
+  --warning: #fab219;
+  --serious: #ec835a;
+  --critical: #d03b3b;
+  --idle: #8d8c86;
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+    --surface-0: #111110;
+    --surface-1: #1a1a19;
+    --border: #2d2d2b;
+    --grid: #262624;
+    --text-primary: #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted: #8f8e86;
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --track: #184f95;
+    --fill: #5598e7;
+    --idle: #8f8e86;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --surface-0: #111110;
+  --surface-1: #1a1a19;
+  --border: #2d2d2b;
+  --grid: #262624;
+  --text-primary: #ffffff;
+  --text-secondary: #c3c2b7;
+  --text-muted: #8f8e86;
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --track: #184f95;
+  --fill: #5598e7;
+  --idle: #8f8e86;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--surface-0); color: var(--text-primary);
+  font: 14px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif;
+}
+main { max-width: 1320px; margin: 0 auto; padding: 24px 16px 48px; }
+header { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; flex-wrap: wrap; }
+h1 { font-size: 22px; margin: 0; font-weight: 650; }
+h2 { font-size: 15px; margin: 32px 0 12px; font-weight: 600; }
+.sub { color: var(--text-secondary); font-size: 13px; }
+.panel { background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px; }
+
+.kpis { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 12px; margin-top: 20px; }
+.kpi { padding: 16px 18px; }
+.kpi .label { color: var(--text-secondary); font-size: 13px; }
+.kpi .value { font-size: 28px; font-weight: 600; margin-top: 4px; }
+.kpi .hero { font-size: 48px; font-weight: 650; line-height: 1.05; }
+.kpi .hero small { font-size: 20px; color: var(--text-secondary); font-weight: 500; }
+.kpi .note { color: var(--text-muted); font-size: 12px; margin-top: 4px; }
+
+.machines { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.machine { padding: 16px 18px 12px; min-width: 0; }
+.mhead { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.mname { font-size: 17px; font-weight: 600; }
+.mrole { color: var(--text-secondary); font-size: 12px; }
+.status { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600;
+  color: var(--text-primary); white-space: nowrap; }
+.status svg { flex: none; }
+
+.meters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 20px; margin-top: 14px; }
+.meter .row { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-secondary); }
+.meter .row b { color: var(--text-primary); font-weight: 600; font-variant-numeric: tabular-nums; }
+.bar { height: 8px; border-radius: 4px; background: var(--track); margin-top: 4px; overflow: hidden; }
+.bar > i { display: block; height: 100%; border-radius: 4px; background: var(--fill); transition: width .6s ease; }
+.meter.na .bar { background: var(--grid); }
+
+.temps { display: flex; gap: 20px; margin-top: 12px; flex-wrap: wrap; font-size: 12px; color: var(--text-secondary); }
+.temps b { color: var(--text-primary); font-size: 15px; font-weight: 600; margin-right: 4px; }
+
+.render { margin-top: 14px; padding: 10px 12px; border-radius: 8px; background: var(--surface-0); font-size: 13px; }
+.render .line1 { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.render .muted { color: var(--text-muted); }
+.render .bar { height: 6px; }
+
+.charts { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 12px; }
+.chart { min-width: 0; position: relative; }
+.chart .ctitle { display: flex; justify-content: space-between; align-items: center; font-size: 12px;
+  color: var(--text-secondary); gap: 8px; flex-wrap: wrap; }
+.legend { display: flex; gap: 10px; }
+.legend span { display: inline-flex; align-items: center; gap: 4px; }
+.legend i { width: 10px; height: 2px; border-radius: 1px; display: inline-block; }
+.chart svg { display: block; width: 100%; height: 110px; overflow: visible; }
+.chart text { fill: var(--text-muted); font-size: 10px; font-variant-numeric: tabular-nums; }
+.chart .endlabel { fill: var(--text-secondary); font-size: 10px; }
+.tip { position: absolute; pointer-events: none; background: var(--surface-1); border: 1px solid var(--border);
+  border-radius: 6px; padding: 6px 8px; font-size: 12px; box-shadow: 0 2px 8px rgba(0,0,0,.12);
+  white-space: nowrap; display: none; z-index: 2; }
+.tip .k { display: inline-block; width: 10px; height: 2px; margin-right: 6px; vertical-align: middle; }
+
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { text-align: left; color: var(--text-secondary); font-weight: 500; font-size: 12px; padding: 10px 14px;
+  border-bottom: 1px solid var(--border); }
+td { padding: 10px 14px; border-bottom: 1px solid var(--grid); vertical-align: middle; }
+tr:last-child td { border-bottom: none; }
+td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+td .bar { width: 120px; margin: 0; }
+.split { color: var(--text-secondary); font-size: 12px; }
+.tablewrap { overflow-x: auto; }
+.banner { margin-top: 16px; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--critical);
+  color: var(--text-primary); display: none; }
+
+@media (max-width: 1000px) {
+  .machines { grid-template-columns: 1fr; }
+  .kpis { grid-template-columns: 1fr 1fr; }
+  .kpis .kpi:first-child { grid-column: span 2; }
+}
+@media (max-width: 560px) {
+  .charts { grid-template-columns: 1fr; }
+  .meters { grid-template-columns: 1fr 1fr; gap: 10px 14px; }
+  .hide-sm { display: none; }
+  .kpis .kpi:last-child { grid-column: span 2; }
+}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Render farm</h1>
+    <div class="sub" id="updated">Connecting…</div>
+  </header>
+  <div class="banner" id="banner"></div>
+
+  <section class="kpis">
+    <div class="panel kpi">
+      <div class="label" id="job-label">Frames rendered</div>
+      <div class="hero" id="job-frames">–</div>
+      <div class="note" id="job-note"></div>
+    </div>
+    <div class="panel kpi"><div class="label">Machines online</div><div class="value" id="k-online">–</div></div>
+    <div class="panel kpi"><div class="label">Rendering now</div><div class="value" id="k-busy">–</div></div>
+    <div class="panel kpi"><div class="label">Frames rendered, all jobs</div><div class="value" id="k-frames">–</div></div>
+  </section>
+
+  <h2>Machines</h2>
+  <section class="machines" id="machines"></section>
+
+  <h2>Jobs</h2>
+  <section class="panel tablewrap">
+    <table>
+      <thead><tr><th>Job</th><th>Status</th><th>Progress</th><th>Done</th><th class="hide-sm">By machine</th><th class="hide-sm">Updated</th></tr></thead>
+      <tbody id="jobs"></tbody>
+    </table>
+  </section>
+</main>
+
+<script>
+const $ = (s, el = document) => el.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+const pct = v => v == null ? "–" : `${Math.round(v)}%`;
+const gb = b => b == null ? "–" : (b / 2 ** 30).toFixed(1);
+const ago = iso => {
+  const s = (Date.now() - new Date(iso)) / 1000;
+  if (s < 60) return "just now";
+  if (s < 3600) return `${Math.round(s / 60)} min ago`;
+  if (s < 86400) return `${Math.round(s / 3600)} h ago`;
+  return new Date(iso).toLocaleDateString();
+};
+
+// Status: colour always paired with an icon shape and a text label.
+const ICONS = {
+  good: '<circle cx="6" cy="6" r="5" fill="var(--good)"/>',
+  idle: '<circle cx="6" cy="6" r="4.2" fill="none" stroke="var(--idle)" stroke-width="1.6"/>',
+  warning: '<path d="M6 1 11 10.5H1Z" fill="var(--warning)"/>',
+  serious: '<path d="M6 1 11 10.5H1Z" fill="var(--serious)"/>',
+  critical: '<rect x="1" y="1" width="10" height="10" rx="2" fill="var(--critical)"/><path d="M4 4l4 4M8 4l-4 4" stroke="#fff" stroke-width="1.5"/>',
+};
+const status = (kind, label) => `<span class="status"><svg width="12" height="12" viewBox="0 0 12 12">${ICONS[kind]}</svg>${esc(label)}</span>`;
+function tempStatus(t) {
+  if (t == null) return null;
+  if (t >= 95) return ["critical", "Critical"];
+  if (t >= 85) return ["serious", "Hot"];
+  if (t >= 75) return ["warning", "Warm"];
+  return ["good", "OK"];
+}
+
+function meter(label, value, text, na) {
+  const w = na ? 0 : Math.max(0, Math.min(100, value ?? 0));
+  return `<div class="meter${na ? " na" : ""}"><div class="row"><span>${label}</span><b>${text}</b></div>
+    <div class="bar"><i style="width:${w}%"></i></div></div>`;
+}
+
+// ---- line chart (two series, one axis, crosshair tooltip) ----
+const SERIES = [{key: "cpu", name: "CPU", color: "var(--series-1)"}, {key: "gpu", name: "GPU", color: "var(--series-2)"}];
+function drawChart(host, hist, fields, unit, fixedMax) {
+  const svg = $("svg", host), W = svg.clientWidth || 300, H = 110;
+  const pad = {l: 26, r: 44, t: 6, b: 16};
+  const pw = W - pad.l - pad.r, ph = H - pad.t - pad.b;
+  const now = Date.now() / 1000, span = 300;
+  const vals = hist.flatMap(p => fields.map(f => p[f])).filter(v => v != null);
+  const max = fixedMax ?? Math.max(50, Math.ceil((Math.max(...vals, 0) + 5) / 10) * 10);
+  const x = t => pad.l + pw * (1 - (now - t) / span);
+  const y = v => pad.t + ph * (1 - v / max);
+  let g = "";
+  for (let i = 0; i <= 2; i++) {
+    const v = max * i / 2, yy = y(v);
+    g += `<line x1="${pad.l}" x2="${pad.l + pw}" y1="${yy}" y2="${yy}" stroke="var(--grid)" stroke-width="1"/>
+          <text x="${pad.l - 4}" y="${yy + 3}" text-anchor="end">${v}${unit}</text>`;
+  }
+  g += `<text x="${pad.l}" y="${H - 2}">5 min ago</text><text x="${pad.l + pw}" y="${H - 2}" text-anchor="end">now</text>`;
+  const ends = [];
+  fields.forEach((f, i) => {
+    const pts = hist.filter(p => p[f] != null && now - p.t <= span);
+    if (!pts.length) return;
+    const d = pts.map((p, j) => `${j ? "L" : "M"}${x(p.t).toFixed(1)},${y(p[f]).toFixed(1)}`).join("");
+    g += `<path d="${d}" fill="none" stroke="${SERIES[i].color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+    const last = pts[pts.length - 1];
+    ends.push({y: y(last[f]), text: `${SERIES[i].name} ${Math.round(last[f])}${unit}`});
+  });
+  ends.sort((a, b) => a.y - b.y);
+  for (let i = 1; i < ends.length; i++) if (ends[i].y - ends[i - 1].y < 11) ends[i].y = ends[i - 1].y + 11;
+  ends.forEach(e => g += `<text class="endlabel" x="${pad.l + pw + 4}" y="${Math.min(e.y + 3, H - pad.b)}">${e.text}</text>`);
+  g += `<g class="cross" style="display:none"><line y1="${pad.t}" y2="${pad.t + ph}" stroke="var(--text-muted)" stroke-width="1"/></g>
+        <rect class="hit" x="${pad.l}" y="0" width="${pw}" height="${H}" fill="transparent"/>`;
+  svg.innerHTML = g;
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+
+  const cross = $(".cross", svg), tip = $(".tip", host), hit = $(".hit", svg);
+  const hide = () => { cross.style.display = "none"; tip.style.display = "none"; };
+  // The chart redraws every poll; remember the pointer so the crosshair survives the redraw.
+  hit.onmouseleave = () => { host.hoverX = null; hide(); };
+  hit.onmousemove = ev => { host.hoverX = ev.clientX - svg.getBoundingClientRect().left; showAt(host.hoverX); };
+  const showAt = mx => {
+    const t = now - span * (1 - (mx - pad.l) / pw);
+    let best = null;
+    for (const p of hist) if (!best || Math.abs(p.t - t) < Math.abs(best.t - t)) best = p;
+    if (!best) return hide();
+    const bx = x(best.t);
+    cross.style.display = "";
+    cross.innerHTML = `<line x1="${bx}" x2="${bx}" y1="${pad.t}" y2="${pad.t + ph}" stroke="var(--text-muted)" stroke-width="1"/>` +
+      fields.map((f, i) => best[f] == null ? "" :
+        `<circle cx="${bx}" cy="${y(best[f])}" r="4" fill="${SERIES[i].color}" stroke="var(--surface-1)" stroke-width="2"/>`).join("");
+    const secs = Math.round(now - best.t);
+    tip.innerHTML = `<div style="color:var(--text-secondary)">${secs < 3 ? "now" : `${secs} s ago`}</div>` +
+      fields.map((f, i) => `<div><span class="k" style="background:${SERIES[i].color}"></span>${SERIES[i].name} <b>${best[f] == null ? "–" : Math.round(best[f]) + unit}</b></div>`).join("");
+    tip.style.display = "block";
+    const left = Math.min(bx + 10, W - tip.offsetWidth);
+    tip.style.left = `${left}px`; tip.style.top = "18px";
+  };
+  if (host.hoverX != null) showAt(host.hoverX);
+}
+
+// ---- machine cards ----
+function machineCard(m) {
+  let el = document.getElementById(`m-${m.key}`);
+  if (!el) {
+    el = document.createElement("article");
+    el.className = "panel machine"; el.id = `m-${m.key}`;
+    el.innerHTML = `<div class="mhead"><div><div class="mname"></div><div class="mrole"></div></div><div class="mstatus"></div></div>
+      <div class="meters"></div><div class="temps"></div><div class="render"></div>
+      <div class="charts">
+        <div class="chart c-use"><div class="ctitle"><span>Usage, last 5 min</span><span class="legend">
+          <span><i style="background:var(--series-1)"></i>CPU</span><span><i style="background:var(--series-2)"></i>GPU</span></span></div>
+          <svg role="img" aria-label="CPU and GPU usage over the last five minutes"></svg><div class="tip"></div></div>
+        <div class="chart c-temp"><div class="ctitle"><span>Temperature, last 5 min</span><span class="legend">
+          <span><i style="background:var(--series-1)"></i>CPU</span><span><i style="background:var(--series-2)"></i>GPU</span></span></div>
+          <svg role="img" aria-label="CPU and GPU temperature over the last five minutes"></svg><div class="tip"></div></div>
+      </div>`;
+    $("#machines").appendChild(el);
+  }
+  const L = m.latest || {}, w = m.worker, task = w?.task, pr = w?.progress || {};
+  $(".mname", el).textContent = m.label;
+  $(".mrole", el).textContent = m.role;
+
+  let st;
+  if (!m.online) st = status("critical", "Offline");
+  else if (!w) st = status("warning", "Not in farm");
+  else if (w.status !== "awake") st = status("warning", w.status);
+  else if (task) st = status("good", "Rendering");
+  else st = status("idle", "Idle");
+  $(".mstatus", el).innerHTML = st;
+
+  const hasGpu = L.gpu_pct != null;
+  $(".meters", el).innerHTML =
+    meter("CPU", L.cpu_pct, `${pct(L.cpu_pct)}${L.cores ? ` · ${L.cores} cores` : ""}`) +
+    meter("GPU", L.gpu_pct, hasGpu ? `${pct(L.gpu_pct)}${L.gpu_power != null ? ` · ${L.gpu_power.toFixed(0)} W` : ""}` : "not used", !hasGpu) +
+    meter("RAM", L.ram_total ? 100 * L.ram_used / L.ram_total : null, L.ram_total ? `${gb(L.ram_used)} / ${gb(L.ram_total)} GB` : "–") +
+    (L.vram_total != null
+      ? meter("VRAM", 100 * L.vram_used / L.vram_total, `${gb(L.vram_used)} / ${gb(L.vram_total)} GB`)
+      : meter("VRAM", 0, m.local && m.online ? "shared with RAM" : "–", true));
+
+  const temp = (name, t) => {
+    const s = tempStatus(t);
+    return `<span>${name} <b>${t == null ? "–" : Math.round(t) + "°C"}</b>${s ? status(s[0], s[1]) : ""}</span>`;
+  };
+  $(".temps", el).innerHTML = temp("CPU", L.cpu_temp) + (L.gpu_temp != null ? temp("GPU", L.gpu_temp) : "") +
+    (!m.online && m.error ? `<span>${esc(m.error)}</span>` : "");
+
+  let r;
+  if (task) {
+    const job = (window.__jobs || []).find(j => j.id === task.job_id);
+    const sp = pr.samples ? 100 * pr.sample / pr.samples : 0;
+    r = `<div class="line1"><span><b>${esc(job?.name || "Job")}</b> · ${esc(task.name)}</span>
+         <span class="muted">${pr.remaining ? `${esc(pr.remaining)} left on frame` : ""}</span></div>
+         <div class="line1" style="margin-top:4px"><span>${pr.frame != null ? `Frame ${pr.frame}` : esc(pr.stage || "Starting Blender…")}</span>
+         <span class="muted">${pr.samples ? `sample ${pr.sample} / ${pr.samples}` : ""}</span></div>
+         <div class="bar" style="margin-top:6px"><i style="width:${sp}%"></i></div>`;
+  } else {
+    r = `<div class="line1"><span class="muted">No task</span><span></span></div>`;
+  }
+  r += `<div class="line1" style="margin-top:6px"><span class="muted">Frames rendered here</span><span><b>${w ? w.frames_done : "–"}</b> <span class="muted">in ${w ? w.tasks_done : 0} ${w?.tasks_done === 1 ? "task" : "tasks"}</span></span></div>`;
+  $(".render", el).innerHTML = r;
+
+  const hist = m.history.map(p => ({t: p.t, cpu: p.cpu_pct, gpu: p.gpu_pct, cput: p.cpu_temp, gput: p.gpu_temp}));
+  drawChart($(".c-use", el), hist, ["cpu", "gpu"], "%", 100);
+  drawChart($(".c-temp", el), hist, ["cput", "gput"], "°", null);
+}
+
+function jobsTable(jobs) {
+  const names = window.__labels || {};
+  $("#jobs").innerHTML = jobs.slice(0, 15).map(j => {
+    const p = j.frames_total ? 100 * j.frames_done / j.frames_total : (j.tasks_total ? 100 * j.tasks_done / j.tasks_total : 0);
+    const kind = {completed: "good", active: "good", queued: "idle", paused: "idle", failed: "critical", canceled: "warning"}[j.status] || "idle";
+    const split = Object.entries(j.per_worker).sort((a, b) => b[1] - a[1]).map(([n, c]) => `${esc(names[n] || n)} ${c}`).join(" · ");
+    return `<tr><td>${esc(j.name)}</td><td>${status(kind, j.status)}</td>
+      <td><div class="bar"><i style="width:${p}%"></i></div></td>
+      <td class="num">${j.frames_total ? `${j.frames_done} / ${j.frames_total}` : `${j.tasks_done} / ${j.tasks_total} tasks`}</td>
+      <td class="split hide-sm">${split || "–"}</td><td class="hide-sm split">${ago(j.updated)}</td></tr>`;
+  }).join("") || `<tr><td colspan="6" class="split">No jobs yet</td></tr>`;
+}
+
+function render(s) {
+  window.__jobs = s.jobs;
+  window.__labels = s.labels;
+  const online = s.machines.filter(m => m.online).length;
+  const busy = s.machines.filter(m => m.worker?.task).length;
+  $("#k-online").textContent = `${online} / ${s.machines.length}`;
+  $("#k-busy").textContent = busy;
+  $("#k-frames").textContent = s.jobs.reduce((a, j) => a + j.frames_done, 0).toLocaleString();
+
+  const job = s.jobs.find(j => j.status === "active") || s.jobs.find(j => j.status === "queued") || s.jobs[0];
+  if (job) {
+    $("#job-label").textContent = `${job.status === "active" ? (job.frames_total ? "Frames rendered" : "Tasks done") : "Latest job"} · ${job.name}`;
+    $("#job-frames").innerHTML = job.frames_total ? `${job.frames_done}<small> / ${job.frames_total}</small>`
+      : `${job.tasks_done}<small> / ${job.tasks_total} tasks</small>`;
+    $("#job-note").textContent = `${job.status} · updated ${ago(job.updated)}`;
+  }
+  s.machines.forEach(machineCard);
+  jobsTable(s.jobs);
+
+  const b = $("#banner");
+  b.style.display = s.farm_error ? "block" : "none";
+  if (s.farm_error) b.innerHTML = status("critical", "Flamenco Manager unreachable") + ` <span class="split">${esc(s.farm_error)}</span>`;
+  $("#updated").textContent = `Live · updated ${new Date(s.now * 1000).toLocaleTimeString()}`;
+}
+
+let last = null;
+async function tick() {
+  try {
+    const r = await fetch("/api/state", {cache: "no-store"});
+    last = await r.json();
+    render(last);
+  } catch (e) {
+    $("#updated").textContent = "Monitor server unreachable, retrying…";
+  }
+  setTimeout(tick, 2000);
+}
+addEventListener("resize", () => last && last.machines.forEach(machineCard));
+tick();
+</script>
+</body>
+</html>
