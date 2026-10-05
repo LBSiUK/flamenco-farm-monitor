@@ -8,6 +8,7 @@ Standard library only. Machines and the Manager URL come from farm.json.
 import json
 import os
 import re
+import shutil
 import subprocess
 import threading
 import time
@@ -63,10 +64,26 @@ def watch_linux(key, host):
         time.sleep(5)
 
 
+def chip_name():
+    try:
+        return subprocess.run(["sysctl", "-n", "machdep.cpu.brand_string"],
+                              capture_output=True, text=True, timeout=5).stdout.strip() or None
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+
+
 def watch_mac(key):
+    # launchd's PATH has no /opt/homebrew/bin, so fall back to Homebrew's usual location.
+    macmon = shutil.which("macmon") or "/opt/homebrew/bin/macmon"
+    chip = chip_name()
     while True:
-        proc = subprocess.Popen(["/opt/homebrew/bin/macmon", "pipe", "-i", "2000"],
-                                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        try:
+            proc = subprocess.Popen([macmon, "pipe", "-i", "2000"],
+                                    stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        except OSError as exc:
+            mark_offline(key, f"cannot run macmon: {exc.strerror} (install it with: brew install macmon)")
+            time.sleep(30)
+            continue
         for line in proc.stdout:
             try:
                 d = json.loads(line)
@@ -79,7 +96,7 @@ def watch_mac(key):
                 "cpu_temp": d["temp"]["cpu_temp_avg"],
                 "gpu_pct": 100 * d["gpu_active_ratio"],
                 "gpu_temp": d["temp"]["gpu_temp_avg"],
-                "gpu_name": "Apple M3 Pro GPU",
+                "gpu_name": f"{chip} GPU" if chip else None,
                 "gpu_power": d["gpu_power"],
                 "ram_used": d["memory"]["ram_usage"], "ram_total": d["memory"]["ram_total"],
                 "cores": p + e,
