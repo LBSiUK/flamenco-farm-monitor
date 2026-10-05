@@ -51,8 +51,11 @@ def watch_linux(key, host):
             ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=5", "-o", "ServerAliveInterval=5",
              "-o", "ServerAliveCountMax=2", host, "python3 -u -"],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        proc.stdin.write(probe)
-        proc.stdin.close()
+        try:
+            proc.stdin.write(probe)
+            proc.stdin.close()
+        except BrokenPipeError:  # ssh already gave up; its stderr below says why
+            pass
         for line in proc.stdout:
             try:
                 record(key, json.loads(line))
