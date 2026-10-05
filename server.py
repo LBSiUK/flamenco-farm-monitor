@@ -3,13 +3,16 @@
 
 Linux workers are sampled by piping probe_linux.py over ssh; the Mac (which also hosts the
 Flamenco Manager) is sampled with `macmon pipe`. The browser polls /api/state every 2 s.
-Standard library only. Machines and the Manager URL come from farm.json.
+Standard library only. Machines and the Manager URL come from farm.json; `--demo` swaps all of
+that for the made-up farm in demo.py.
 """
+import argparse
 import json
 import os
 import re
 import shutil
 import subprocess
+import sys
 import threading
 import time
 import urllib.request
@@ -18,18 +21,25 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-# Machines, manager URL and port live in farm.json (see farm.example.json); FARM_CONFIG overrides the path.
-CONFIG = json.loads(Path(os.environ.get("FARM_CONFIG", HERE / "farm.json")).read_text())
-PORT = CONFIG.get("port", 8091)
-MANAGER = CONFIG["manager"].rstrip("/") + "/api/v3"
 HISTORY = 150  # samples kept per machine (5 minutes at 2 s)
-MACHINES = {m["key"]: m for m in CONFIG["machines"]}
-LABELS = {m["worker"]: m["label"] for m in CONFIG["machines"]}
+
+# Filled in by configure() from farm.json (see farm.example.json; FARM_CONFIG overrides the path).
+MANAGER = None
+MACHINES, LABELS = {}, {}
+DEMO = None  # a demo.DemoFarm standing in for the probes and the Manager when run with --demo
 
 lock = threading.Lock()
-metrics = {k: {"online": False, "latest": None, "history": deque(maxlen=HISTORY), "error": None}
-           for k in MACHINES}
+metrics = {}
 farm = {"workers": {}, "jobs": [], "updated": None, "error": None}
+
+
+def configure(config):
+    global MANAGER
+    MANAGER = config["manager"].rstrip("/") + "/api/v3"
+    MACHINES.update((m["key"], m) for m in config["machines"])
+    LABELS.update((m["worker"], m["label"]) for m in config["machines"])
+    metrics.update((k, {"online": False, "latest": None, "history": deque(maxlen=HISTORY), "error": None})
+                   for k in MACHINES)
 
 
 def record(key, sample):
@@ -109,7 +119,20 @@ def watch_mac(key):
         time.sleep(5)
 
 
+def watch_demo():
+    now = time.time()
+    for i in range(HISTORY - 1, 0, -1):  # back-fill five minutes so the charts start full
+        for key, sample in DEMO.step(now - 2 * i).items():
+            record(key, sample)
+    while True:
+        for key, sample in DEMO.step(time.time()).items():
+            record(key, sample)
+        time.sleep(2)
+
+
 def api(path):
+    if DEMO:
+        return DEMO.api(path)
     with urllib.request.urlopen(MANAGER + path, timeout=5) as r:
         return json.load(r)
 
@@ -149,8 +172,11 @@ LOG_STAGES = [
 def live_progress(task_id):
     """Current frame / sample / time remaining parsed from the task's Blender log tail."""
     try:
-        req = urllib.request.urlopen(f"{MANAGER}/tasks/{task_id}/logtail", timeout=5)
-        tail = req.read().decode(errors="replace")
+        if DEMO:
+            tail = DEMO.log_tail(task_id)
+        else:
+            req = urllib.request.urlopen(f"{MANAGER}/tasks/{task_id}/logtail", timeout=5)
+            tail = req.read().decode(errors="replace")
     except Exception:
         return {}
     return parse_log_tail(tail)
@@ -264,12 +290,35 @@ class Handler(SimpleHTTPRequestHandler):
 
 
 def main():
-    for key, cfg in MACHINES.items():
-        target = (watch_linux, (key, cfg["ssh"])) if cfg.get("ssh") else (watch_mac, (key,))
-        threading.Thread(target=target[0], args=target[1], daemon=True).start()
+    global DEMO
+    parser = argparse.ArgumentParser(description="Live dashboard for a Blender Flamenco render farm.")
+    parser.add_argument("--demo", action="store_true",
+                        help="show a made-up farm with changing numbers (no farm.json, ssh or Manager needed)")
+    parser.add_argument("--port", type=int, help="port to serve on (default: farm.json's port, else 8091)")
+    args = parser.parse_args()
+
+    if args.demo:
+        import demo
+        config = demo.CONFIG
+    else:
+        path = Path(os.environ.get("FARM_CONFIG", HERE / "farm.json"))
+        if not path.exists():
+            sys.exit(f"No machine list at {path}. Copy farm.example.json to farm.json and list your "
+                     "machines, or try the dashboard with: python3 server.py --demo")
+        config = json.loads(path.read_text())
+    configure(config)
+    port = args.port or config.get("port", 8091)
+
+    if args.demo:
+        DEMO = demo.DemoFarm(config["machines"], start=time.time() - 2 * HISTORY)
+        threading.Thread(target=watch_demo, daemon=True).start()
+    else:
+        for key, cfg in MACHINES.items():
+            target = (watch_linux, (key, cfg["ssh"])) if cfg.get("ssh") else (watch_mac, (key,))
+            threading.Thread(target=target[0], args=target[1], daemon=True).start()
     threading.Thread(target=watch_flamenco, daemon=True).start()
-    print(f"farm monitor on http://0.0.0.0:{PORT}", flush=True)
-    ThreadingHTTPServer(("0.0.0.0", PORT), Handler).serve_forever()
+    print(f"farm monitor on http://0.0.0.0:{port}" + (" (demo data)" if args.demo else ""), flush=True)
+    ThreadingHTTPServer(("0.0.0.0", port), Handler).serve_forever()
 
 
 if __name__ == "__main__":
