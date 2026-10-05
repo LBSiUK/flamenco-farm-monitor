@@ -1,3 +1,4 @@
 farm.json
 monitor.log
 __pycache__/
+.DS_Store
