@@ -368,7 +368,7 @@ function render(s) {
   const b = $("#banner");
   b.style.display = s.farm_error ? "block" : "none";
   if (s.farm_error) b.innerHTML = status("critical", "Flamenco Manager unreachable") + ` <span class="split">${esc(s.farm_error)}</span>`;
-  $("#updated").textContent = `Live · updated ${new Date(s.now * 1000).toLocaleTimeString()}`;
+  $("#updated").textContent = `${s.demo ? "Demo data" : "Live"} · updated ${new Date(s.now * 1000).toLocaleTimeString()}`;
 }
 
 let last = null;
