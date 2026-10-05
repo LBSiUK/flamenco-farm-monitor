@@ -136,10 +136,13 @@ class DemoFarm:
         self._finish_tasks(job, 21, gpus)
         job["status"], job["updated"] = "active", start - 40
         self._job("Studio stills · 6K", start - 180, "1-12", 1)
-        for w in self.workers.values():  # start the GPU machines part-way through a frame
+        for w in self.workers.values():  # start the GPU machines warm and part-way through a frame
             if self._claim(w, start):
+                p = w["prof"]
                 w["frame"] += self.rng.randint(0, 3)
                 w["sample"], w["wait"], w["stage"] = self.rng.uniform(0, SAMPLES), 0.0, "render"
+                w["cpu_temp"], w["ram"] = p["cpu_temp"][1], p["ram_used"][1]
+                w["gpu_temp"], w["vram"] = p.get("gpu_temp", (0, 0))[1], p.get("vram_used", (0, 0))[1]
 
     def _claim(self, w, t):
         """Give the worker the next queued task it may run, oldest job first, as Flamenco does."""
