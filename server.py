@@ -266,7 +266,8 @@ def snapshot():
                 "history": list(m["history"]), "worker": farm["workers"].get(cfg["worker"]),
             })
         return {"now": time.time(), "machines": machines, "jobs": farm["jobs"],
-                "farm_updated": farm["updated"], "farm_error": farm["error"], "labels": LABELS}
+                "farm_updated": farm["updated"], "farm_error": farm["error"], "labels": LABELS,
+                "demo": DEMO is not None}
 
 
 class Handler(SimpleHTTPRequestHandler):
