@@ -131,9 +131,11 @@ def task_frames(task):
     return frames_in(m.group(1)) if m and task.get("task_type") == "blender" else 0
 
 
-LOG_FRAME = re.compile(r"Fra: (\d+)")
+# Blender 5 logs "Fra: 12 | Remaining: 00:45.67 | ... | Sample 128/512"; 4.x and older drop the spaces
+# ("Fra:12 Mem:... | Remaining:00:45.67 | ..."), so the space is optional.
+LOG_FRAME = re.compile(r"Fra:\s*(\d+)")
 LOG_SAMPLE = re.compile(r"Sample (\d+)/(\d+)")
-LOG_REMAIN = re.compile(r"Remaining: ([\d:.]+)")
+LOG_REMAIN = re.compile(r"Remaining:\s*([\d:.]+)")
 # Stage markers for tasks that are not frame renders (bakes, card renders). Scripts can print
 # "STAGE <text>" to show their own; the BAKE/CARD lines are the Onward web3d scripts' markers.
 LOG_STAGES = [
@@ -151,6 +153,11 @@ def live_progress(task_id):
         tail = req.read().decode(errors="replace")
     except Exception:
         return {}
+    return parse_log_tail(tail)
+
+
+def parse_log_tail(tail):
+    """The newest frame, sample, time remaining and stage found in a chunk of Blender log."""
     out = {}
     for line in reversed(tail.splitlines()):
         if "frame" not in out and (m := LOG_FRAME.search(line)):
