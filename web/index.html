@@ -4,6 +4,16 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Render Farm Monitor</title>
+<!-- Windows 98 skin (98.css, MIT, vendored). Off until the "Windows 98 look" button turns it on. -->
+<link id="skin-98" rel="stylesheet" href="vendor/98/98.css" media="not all">
+<script>
+try {
+  if (localStorage.getItem("skin") === "98") {
+    document.documentElement.dataset.skin = "98";
+    document.getElementById("skin-98").media = "all";
+  }
+} catch (e) {}
+</script>
 <style>
 :root {
   color-scheme: light;
@@ -67,6 +77,12 @@ h1 { font-size: 22px; margin: 0; font-weight: 650; }
 h2 { font-size: 15px; margin: 32px 0 12px; font-weight: 600; }
 .sub { color: var(--text-secondary); font-size: 13px; }
 .panel { background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px; }
+.hright { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.skin-toggle { font: inherit; font-size: 12px; color: var(--text-secondary); background: var(--surface-1);
+  border: 1px solid var(--border); border-radius: 999px; padding: 4px 12px; cursor: pointer; }
+.skin-toggle:hover { color: var(--text-primary); }
+.skin-toggle:focus-visible { outline: 2px solid var(--fill); outline-offset: 2px; }
+:root:not([data-skin="98"]) .skin-only { display: none; }
 
 .kpis { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 12px; margin-top: 20px; }
 .kpi { padding: 16px 18px; }
@@ -77,7 +93,8 @@ h2 { font-size: 15px; margin: 32px 0 12px; font-weight: 600; }
 .kpi .note { color: var(--text-muted); font-size: 12px; margin-top: 4px; }
 
 .machines { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-.machine { padding: 16px 18px 12px; min-width: 0; }
+.machine { min-width: 0; }
+.mbody { padding: 16px 18px 12px; }
 .mhead { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
 .mname { font-size: 17px; font-weight: 600; }
 .mrole { color: var(--text-secondary); font-size: 12px; }
@@ -138,13 +155,104 @@ td .bar { width: 120px; margin: 0; }
   .hide-sm { display: none; }
   .kpis .kpi:last-child { grid-column: span 2; }
 }
+
+/* ---- Windows 98 skin: [data-skin="98"] on <html>, with vendor/98/98.css switched on ----
+   Light only, like the real thing. Charts are drawn like Task Manager: green on black. */
+:root[data-skin="98"] {
+  color-scheme: light;
+  --surface-0: #c0c0c0;
+  --surface-1: #c0c0c0;
+  --border: #808080;
+  --grid: #dfdfdf;
+  --text-primary: #000000;
+  --text-secondary: #222222;
+  --text-muted: #555555;
+  --series-1: #000080;
+  --series-2: #808000;
+  --track: #ffffff;
+  --fill: #000080;
+  --good: #008000;
+  --warning: #c09000;
+  --serious: #e06000;
+  --critical: #c00000;
+  --idle: #808080;
+  --pixel: "Pixelated MS Sans Serif", Arial, sans-serif;
+  --sunken: inset -1px -1px #fff, inset 1px 1px #808080, inset -2px -2px #dfdfdf, inset 2px 2px #0a0a0a;
+}
+[data-skin="98"] body { background: #008080; color: var(--text-primary); font: 11px/1.35 var(--pixel);
+  -webkit-font-smoothing: none; padding-inline: 16px; }
+[data-skin="98"] main { margin: 16px auto 32px; padding: 3px; }
+[data-skin="98"] .app-body { margin: 10px 10px 12px; }
+[data-skin="98"] header h1 { display: none; }
+[data-skin="98"] header { justify-content: flex-end; }
+[data-skin="98"] .sub { font-size: 11px; color: var(--text-secondary); }
+[data-skin="98"] h2 { font: 700 11px/1.35 var(--pixel); margin: 18px 0 8px; }
+[data-skin="98"] .panel { border: 0; border-radius: 0; background: #c0c0c0; }
+[data-skin="98"] .skin-toggle { background: #c0c0c0; border: 0; border-radius: 0; padding: 0 12px;
+  color: transparent; text-shadow: 0 0 #222; font: 11px var(--pixel); }
+[data-skin="98"] .skin-toggle[aria-pressed="true"] { box-shadow: inset -1px -1px #fff, inset 1px 1px #0a0a0a,
+  inset -2px -2px #dfdfdf, inset 2px 2px #808080; background: #dfdfdf; }
+[data-skin="98"] .skin-toggle:focus-visible { outline: 1px dotted #000; outline-offset: -4px; }
+
+/* KPI tiles become etched group boxes with the label sitting on the frame. */
+[data-skin="98"] .kpis { margin-top: 18px; gap: 14px; }
+[data-skin="98"] .kpi { position: relative; padding: 16px 12px 10px; border: 1px solid #808080;
+  box-shadow: inset 1px 1px #fff, 1px 1px #fff; }
+[data-skin="98"] .kpi .label { position: absolute; top: -7px; left: 8px; padding: 0 3px; background: #c0c0c0;
+  color: #000; font-size: 11px; max-width: calc(100% - 16px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+[data-skin="98"] .kpi .value, [data-skin="98"] .kpi .hero { font-family: Tahoma, Verdana, Arial, sans-serif; }
+[data-skin="98"] .kpi .note { font-size: 11px; color: var(--text-muted); }
+
+/* Machine cards are windows: the title bar is active while the machine renders, grey when it is not. */
+[data-skin="98"] .machine { padding: 3px; }
+[data-skin="98"] .machine .mhead { display: none; }
+[data-skin="98"] .mbody { padding: 6px 8px 8px; }
+[data-skin="98"] .title-bar .status { color: #fff; font-weight: 700; }
+[data-skin="98"] .title-bar .tb-role { font-weight: 400; margin-left: 6px; }
+[data-skin="98"] .meter .row, [data-skin="98"] .temps { font-size: 11px; }
+[data-skin="98"] .temps b { font-size: 11px; }
+[data-skin="98"] .bar { height: 18px; padding: 2px; border-radius: 0; background: #fff; box-shadow: var(--sunken); }
+[data-skin="98"] .bar > i { border-radius: 0; }
+[data-skin="98"] .progress-indicator.segmented > .progress-indicator-bar {
+  background-image: linear-gradient(90deg, #000080 8px, transparent 0); background-size: 10px 100%; }
+[data-skin="98"] .meter.na .bar { background: #dfdfdf; }
+[data-skin="98"] .render { background: #fff; border-radius: 0; box-shadow: var(--sunken); padding: 8px 10px; font-size: 11px; }
+[data-skin="98"] .render .bar { height: 14px; }
+
+/* Task Manager charts. */
+[data-skin="98"] .chart { --series-1: #00ff00; --series-2: #ffff00; }
+[data-skin="98"] .chart .ctitle { font-size: 11px; }
+[data-skin="98"] .legend i { height: 6px; border-radius: 0; box-shadow: 0 0 0 1px #000; }
+[data-skin="98"] .chart svg { --grid: #008040; --text-muted: #00c000; --text-secondary: #00ff00; --surface-1: #000;
+  background: #000; box-shadow: var(--sunken); margin-top: 2px; }
+[data-skin="98"] .chart text { font-family: var(--pixel); }
+[data-skin="98"] .tip { --series-1: #008000; --series-2: #a08000; background: #ffffe1; border: 1px solid #000;
+  border-radius: 0; box-shadow: none; color: #000; font: 11px var(--pixel); }
+
+/* Jobs: a sunken table view with button-style headers (from 98.css). */
+[data-skin="98"] .tablewrap { background: #fff; box-shadow: var(--sunken); padding: 2px; }
+[data-skin="98"] table { font-size: 11px; }
+[data-skin="98"] th { border-bottom: 0; font-size: 11px; color: #000; }
+[data-skin="98"] td { border-bottom: 0; padding-block: 3px; }
+[data-skin="98"] .split { font-size: 11px; }
+[data-skin="98"] .banner { border-radius: 0; background: #fff; box-shadow: var(--sunken); border: 0; }
+[data-skin="98"] .status-bar { margin-top: 2px; }
+@media (max-width: 560px) {
+  [data-skin="98"] body { padding-inline: 8px; }
+  [data-skin="98"] .app-body { margin: 8px 6px 10px; }
+}
 </style>
 </head>
 <body>
-<main>
+<main class="window">
+  <div class="title-bar skin-only"><div class="title-bar-text">Render Farm Monitor</div></div>
+  <div class="app-body">
   <header>
     <h1>Render farm</h1>
-    <div class="sub" id="updated">Connecting…</div>
+    <div class="hright">
+      <div class="sub" id="updated">Connecting…</div>
+      <button type="button" class="skin-toggle" id="skin-toggle" aria-pressed="false">Windows 98 look</button>
+    </div>
   </header>
   <div class="banner" id="banner"></div>
 
@@ -163,12 +271,18 @@ td .bar { width: 120px; margin: 0; }
   <section class="machines" id="machines"></section>
 
   <h2>Jobs</h2>
-  <section class="panel tablewrap">
+  <section class="panel tablewrap sunken-panel">
     <table>
       <thead><tr><th>Job</th><th>Status</th><th>Progress</th><th>Done</th><th class="hide-sm">By machine</th><th class="hide-sm">Updated</th></tr></thead>
       <tbody id="jobs"></tbody>
     </table>
   </section>
+  </div>
+  <div class="status-bar skin-only">
+    <p class="status-bar-field" id="sb-online">–</p>
+    <p class="status-bar-field" id="sb-busy">–</p>
+    <p class="status-bar-field" id="sb-manager">–</p>
+  </div>
 </main>
 
 <script>
@@ -201,10 +315,11 @@ function tempStatus(t) {
   return ["good", "OK"];
 }
 
+const bar = (w, style = "") => `<div class="bar progress-indicator segmented"${style ? ` style="${style}"` : ""}><i class="progress-indicator-bar" style="width:${w}%"></i></div>`;
 function meter(label, value, text, na) {
   const w = na ? 0 : Math.max(0, Math.min(100, value ?? 0));
   return `<div class="meter${na ? " na" : ""}"><div class="row"><span>${label}</span><b>${text}</b></div>
-    <div class="bar"><i style="width:${w}%"></i></div></div>`;
+    ${bar(w)}</div>`;
 }
 
 // ---- line chart (two series, one axis, crosshair tooltip) ----
@@ -272,8 +387,9 @@ function machineCard(m) {
   let el = document.getElementById(`m-${m.key}`);
   if (!el) {
     el = document.createElement("article");
-    el.className = "panel machine"; el.id = `m-${m.key}`;
-    el.innerHTML = `<div class="mhead"><div><div class="mname"></div><div class="mrole"></div></div><div class="mstatus"></div></div>
+    el.className = "panel machine window"; el.id = `m-${m.key}`;
+    el.innerHTML = `<div class="title-bar skin-only"><div class="title-bar-text"><span class="tb-name"></span><span class="tb-role"></span></div><div class="tb-status"></div></div>
+      <div class="mbody"><div class="mhead"><div><div class="mname"></div><div class="mrole"></div></div><div class="mstatus"></div></div>
       <div class="meters"></div><div class="temps"></div><div class="render"></div>
       <div class="charts">
         <div class="chart c-use"><div class="ctitle"><span>Usage, last 5 min</span><span class="legend">
@@ -282,12 +398,14 @@ function machineCard(m) {
         <div class="chart c-temp"><div class="ctitle"><span>Temperature, last 5 min</span><span class="legend">
           <span><i style="background:var(--series-1)"></i>CPU</span><span><i style="background:var(--series-2)"></i>GPU</span></span></div>
           <svg role="img" aria-label="CPU and GPU temperature over the last five minutes"></svg><div class="tip"></div></div>
-      </div>`;
+      </div></div>`;
     $("#machines").appendChild(el);
   }
   const L = m.latest || {}, w = m.worker, task = w?.task, pr = w?.progress || {};
   $(".mname", el).textContent = m.label;
   $(".mrole", el).textContent = m.role;
+  $(".tb-name", el).textContent = m.label;
+  $(".tb-role", el).textContent = m.role ? `· ${m.role}` : "";
 
   let st;
   if (!m.online) st = status("critical", "Offline");
@@ -296,6 +414,8 @@ function machineCard(m) {
   else if (task) st = status("good", "Rendering");
   else st = status("idle", "Idle");
   $(".mstatus", el).innerHTML = st;
+  $(".tb-status", el).innerHTML = st;
+  $(".title-bar", el).classList.toggle("inactive", !(m.online && task));
 
   const hasGpu = L.gpu_pct != null;
   $(".meters", el).innerHTML =
@@ -321,7 +441,7 @@ function machineCard(m) {
          <span class="muted">${pr.remaining ? `${esc(pr.remaining)} left on frame` : ""}</span></div>
          <div class="line1" style="margin-top:4px"><span>${pr.frame != null ? `Frame ${pr.frame}` : esc(pr.stage || "Starting Blender…")}</span>
          <span class="muted">${pr.samples ? `sample ${pr.sample} / ${pr.samples}` : ""}</span></div>
-         <div class="bar" style="margin-top:6px"><i style="width:${sp}%"></i></div>`;
+         ${bar(sp, "margin-top:6px")}`;
   } else {
     r = `<div class="line1"><span class="muted">No task</span><span></span></div>`;
   }
@@ -340,7 +460,7 @@ function jobsTable(jobs) {
     const kind = {completed: "good", active: "good", queued: "idle", paused: "idle", failed: "critical", canceled: "warning"}[j.status] || "idle";
     const split = Object.entries(j.per_worker).sort((a, b) => b[1] - a[1]).map(([n, c]) => `${esc(names[n] || n)} ${c}`).join(" · ");
     return `<tr><td>${esc(j.name)}</td><td>${status(kind, j.status)}</td>
-      <td><div class="bar"><i style="width:${p}%"></i></div></td>
+      <td>${bar(p)}</td>
       <td class="num">${j.frames_total ? `${j.frames_done} / ${j.frames_total}` : `${j.tasks_done} / ${j.tasks_total} tasks`}</td>
       <td class="split hide-sm">${split || "–"}</td><td class="hide-sm split">${ago(j.updated)}</td></tr>`;
   }).join("") || `<tr><td colspan="6" class="split">No jobs yet</td></tr>`;
@@ -354,6 +474,9 @@ function render(s) {
   $("#k-online").textContent = `${online} / ${s.machines.length}`;
   $("#k-busy").textContent = busy;
   $("#k-frames").textContent = s.jobs.reduce((a, j) => a + j.frames_done, 0).toLocaleString();
+  $("#sb-online").textContent = `${online} of ${s.machines.length} machines online`;
+  $("#sb-busy").textContent = `${busy} rendering`;
+  $("#sb-manager").textContent = s.farm_error ? "Flamenco Manager unreachable" : "Flamenco Manager connected";
 
   const job = s.jobs.find(j => j.status === "active") || s.jobs.find(j => j.status === "queued") || s.jobs[0];
   if (job) {
@@ -370,6 +493,18 @@ function render(s) {
   if (s.farm_error) b.innerHTML = status("critical", "Flamenco Manager unreachable") + ` <span class="split">${esc(s.farm_error)}</span>`;
   $("#updated").textContent = `${s.demo ? "Demo data" : "Live"} · updated ${new Date(s.now * 1000).toLocaleTimeString()}`;
 }
+
+function setSkin(on) {
+  const root = document.documentElement;
+  if (on) root.dataset.skin = "98"; else delete root.dataset.skin;
+  $("#skin-98").media = on ? "all" : "not all";
+  $("#skin-toggle").setAttribute("aria-pressed", String(on));
+  try { localStorage.setItem("skin", on ? "98" : "modern"); } catch (e) {}
+  // Card widths change with the skin, and the charts are drawn to the width they have.
+  requestAnimationFrame(() => last && last.machines.forEach(machineCard));
+}
+$("#skin-toggle").setAttribute("aria-pressed", String(document.documentElement.dataset.skin === "98"));
+$("#skin-toggle").onclick = () => setSkin(document.documentElement.dataset.skin !== "98");
 
 let last = null;
 async function tick() {

@@ -48,6 +48,12 @@ progress and the split of frames (or tasks) per machine.
 **Also**: a demo mode that needs no farm, light and dark themes, a layout that works on a phone, and a
 banner when the Flamenco Manager cannot be reached (the last known picture stays on screen).
 
+**Windows 98 look**: the "Windows 98 look" button at the top right switches to a Windows 98 skin.
+Machine cards become windows whose title bar greys out when the machine is not rendering, the summary
+cards become group boxes, the charts are drawn like Task Manager, and a status bar runs along the
+bottom. It uses a pinned copy of [98.css](https://github.com/jdan/98.css) (MIT) and loads it only
+while the skin is on. Each browser remembers its choice, and the normal look stays the default.
+
 ## Running it
 
 You need Python 3.8 or newer. Only the standard library is used, so there is nothing to `pip install`.
@@ -185,6 +191,7 @@ the real job summary and log parsing code.
 | `probe_linux.py` | Sent to each Linux worker over ssh on every connect; prints metrics as JSON lines |
 | `demo.py` | The made-up farm behind `--demo` |
 | `web/index.html` | The whole dashboard: HTML, CSS and plain JavaScript with inline SVG charts |
+| `web/vendor/98/` | 98.css 0.1.21, its pixel fonts and its licence, for the Windows 98 skin |
 | `farm.example.json` | Template for your `farm.json` |
 | `tests/` | `unittest` tests |
 | `docs/screenshots/` | The images in this README |
